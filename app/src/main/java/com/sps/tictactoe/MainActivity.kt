@@ -1,7 +1,6 @@
 package com.sps.tictactoe
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -9,15 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rxjava2.subscribeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.sps.tictactoe.MainActivity.ViewModel.CellState.EMPTY
-import com.sps.tictactoe.composables.GameBoard
-import com.sps.tictactoe.composables.GameCounter
-import com.sps.tictactoe.composables.ResetButton
+import com.sps.tictactoe.composables.*
 import com.sps.tictactoe.ui.theme.TicTacToeTheme
 import io.reactivex.Observable
 import io.reactivex.ObservableSource
@@ -29,9 +24,12 @@ class MainActivity : ComponentActivity() {
      * You can change it to fits your needs.
      * You will have to change the view if you change the vm.
      */
+
     data class ViewModel(
         val board: Board = Board(),
         val gameCounter: GameCounter = GameCounter(),
+        val activePlayer: String = "",
+        val result: String = ""
     ) {
         /**
          *   |c1|c2|c3|
@@ -64,20 +62,28 @@ class MainActivity : ComponentActivity() {
     }
 
     private val featureState = TicTacToeFeature()
-    private val viewModelObservable = featureState.wrapToObservable().map(::mapViewModel)
+    private val viewModelObservable: Observable<ViewModel> = featureState.wrapToObservable().map {
+        StateToViewModel(it)
+    }
 
     private fun mapViewModel(state: TicTacToeFeature.State): ViewModel {
         //TODO: map your state to the expectedViewModel here
+        // Given a state in the feature, change the viewmodel
+
+
         return ViewModel()
     }
 
     private fun onResetClicked() {
         // TODO: invoke whatever you need here to reset the feature
+        featureState.accept(TicTacToeFeature.Wish.ResetGame)
     }
 
     private fun onCellClicked(cellIndex: Int) {
         // TODO: invoke whatever you need here to place a piece in the board
+        featureState.accept(TicTacToeFeature.Wish.PlacePiece(cellIndex))
     }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,19 +94,23 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    //val boardState = viewModelObservable.map { it.board }.subscribeAsState(Board())
-                    val boardState = remember {
-                        mutableStateOf(ViewModel.Board())
-                    }
+                    val boardState = viewModelObservable.map { it.board }.subscribeAsState(ViewModel.Board())
 
                     val counterState =
                         viewModelObservable.map { it.gameCounter }
                             .subscribeAsState(ViewModel.GameCounter())
+                    val currentPlayer =
+                        viewModelObservable.map { it.activePlayer }.subscribeAsState(initial = "")
+
+                    val gameResult =
+                        viewModelObservable.map { it.result }.subscribeAsState(initial = "")
 
                     Column(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        TitleText(myTitle = currentPlayer.value.toString())
+                        ResultText(myResult = gameResult.value.toString())
                         GameBoard(board = boardState.value) {
                             onCellClicked(it)
                         }
